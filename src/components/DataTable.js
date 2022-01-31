@@ -125,11 +125,16 @@ function setDisplayColumn() {
   // });
 }
 setDisplayColumn();
-
-function formatDate(medicines) {
+Date.prototype.toJSON = function () {
+  return moment(this).format();
+};
+function formatDate(date) {
+  return moment(date).format("DD/MM/YYYY");
+}
+function formatMedicineDate(medicines) {
   medicines.forEach((medicine) => {
-    medicine.entryDate = moment(medicine.entryDate).format("DD/MM/YYYY");
-    medicine.expiryDate = moment(medicine.expiryDate).format("DD/MM/YYYY");
+    medicine.entryDate = formatDate(medicine.entryDate);
+    medicine.expiryDate = formatDate(medicine.expiryDate);
   });
 
   return medicines;
@@ -142,12 +147,6 @@ export default function QuickFilteringGrid() {
   const [medicineData, setMedicineData] = useState({});
   const [snackbar, setSnackbar] = useState(null);
 
-  const [editRowsModel, setEditRowsModel] = useState({});
-
-  const handleEditRowsModelChange = useCallback((model) => {
-    setEditRowsModel(model);
-  }, []);
-
   const serverUrl = process.env.REACT_APP_SERVER_URL;
   const updateUrl = serverUrl + "/api/Medicine/Update";
 
@@ -158,22 +157,33 @@ export default function QuickFilteringGrid() {
         id: params.id,
         [params.field]: params.value,
       };
-      console.log(editRowsModel);
-      console.log("this is body");
-      console.log(body);
 
-      // setSnackbar({ children: "User successfully saved", severity: "success" });
-      // setRows((prev) =>
-      //   prev.map((row) =>
-      //     row.id === params.id ? { ...row, ...response } : row
-      //   )
-      // );
+      const response = await fetch(updateUrl, {
+        method: "PUT",
+        body: JSON.stringify(body),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      if (response.ok) {
+        setSnackbar({
+          children: "Cập nhật thành công",
+          severity: "success",
+        });
+      } else {
+        setSnackbar({
+          children: "Có lỗi xảy ra",
+          severity: "error",
+        });
+      }
     } catch (error) {
-      setSnackbar({ children: "Error while saving user", severity: "error" });
+      console.log(error);
+      setSnackbar({ children: "Có lỗi xảy ra", severity: "error" });
       // Restore the row in case of error
       setRows((prev) => [...prev]);
     }
   }, []);
+
   useEffect(() => {
     fetch(`${serverUrl}/api/Medicine/GetMedicines`)
       .then((res) => res.json())
@@ -194,7 +204,7 @@ export default function QuickFilteringGrid() {
           }
         });
 
-        data = formatDate(data);
+        data = formatMedicineDate(data);
         setMedicineData(data);
         setCols(cols);
         setRows(data);
@@ -229,8 +239,6 @@ export default function QuickFilteringGrid() {
       </Button>
       <DataGrid
         components={{ Toolbar: QuickSearchToolbar }}
-        editRowsModel={editRowsModel}
-        onEditRowsModelChange={handleEditRowsModelChange}
         onCellEditCommit={handleEditCommit}
         rows={rows}
         columns={cols}
